@@ -175,7 +175,7 @@ function BackupManager(config) {
             [me.checkCurrentlyRunningBackup],
             [me.removeMount],
             [me.addMountForRestore],
-            [me.cmd, ['echo $(date) %(envName) Restoring the snapshot $(cat /root/.backupid)', 'restic self-update 2>&1', 'if [ -e /root/.backupedenv ]; then REPO_DIR=$(cat /root/.backupedenv); else REPO_DIR="%(envName)"; fi', 'jem service stop', 'SNAPSHOT_ID=$(RESTIC_PASSWORD=$REPO_DIR restic -r /opt/backup/$REPO_DIR snapshots|grep $(cat /root/.backupid)|awk \'{print $1}\')', '[ -n "${SNAPSHOT_ID}" ] || false', 'RESTIC_PASSWORD=$REPO_DIR restic -r /opt/backup/$REPO_DIR restore ${SNAPSHOT_ID} --target /'],
+            [me.cmd, ['echo $(date) %(envName) Restoring the snapshot $(cat /root/.backupid)', 'restic self-update 2>&1', 'if [ -e /root/.backupedenv ]; then REPO_DIR=$(cat /root/.backupedenv); else REPO_DIR="%(envName)"; fi', 'jem service stop', 'SNAPSHOT_ID=$(RESTIC_PASSWORD=$REPO_DIR restic -r /opt/backup/$REPO_DIR snapshots|grep $(cat /root/.backupid)|awk \'{print $1}\')', '[ -n "${SNAPSHOT_ID}" ] || false', 'RESTIC_PASSWORD=$REPO_DIR GOGC=20 restic -r /opt/backup/$REPO_DIR restore ${SNAPSHOT_ID} --target /'],
             {
                 nodeGroup: "cp",
                 envName: config.envName
@@ -319,21 +319,23 @@ function BackupManager(config) {
             scriptName = config.scriptName,
             scriptBody, resp;
 
+	var targetAppid = api.dev.apps.CreatePersistence ? config.envAppid : appid    
+
         try {
             scriptBody = new Transport().get(url);
 
             scriptBody = me.replaceText(scriptBody, config);
 
             //delete the script if it already exists
-            api.dev.scripting.DeleteScript(scriptName);
+            api.dev.scripting.DeleteScript(targetAppid, session, scriptName);
 
             //create a new script
-            resp = api.dev.scripting.CreateScript(scriptName, "js", scriptBody);
+            resp = api.dev.scripting.CreateScript(targetAppid, session, scriptName, "js", scriptBody);
 
             java.lang.Thread.sleep(1000);
 
             //build script to avoid caching
-            api.dev.scripting.Build(scriptName);
+            api.dev.scripting.Build(targetAppid, session, scriptName);
         } catch (ex) {
             resp = {
                 result: Response.ERROR_UNKNOWN,
